@@ -9,7 +9,7 @@
 --------------------  ------------------------------------------------------------------------------------------------
  BM168X               比特大陆面向深度学习领域推出的张量处理器
  Umodel               Unified Model，比特大陆自主开发的网络模型格式，用于统一存储各深度学习框架下网络的拓扑结构与系数
- Uframework           Unified Framework，比特大陆自主开发的深度学习框架，集成caffe、tensorflow、mxnet、pytorch各框架的运算功能
+ Uframework           Unified Framework，比特大陆自主开发的深度学习框架，集成Caffe、TensorFlow、MxNet、PyTorch、Darknet各框架的运算功能
  Calibration-tools    网络模型的float32系数到int8系数的转换工具
  Quantization-tools   Umodel，Uframework，Calibration-tools的统称
  SOPHON               比特大陆AI品牌，本文特指AI系列产品的运算平台
@@ -27,7 +27,7 @@ Quantization-Tools是比特大陆自主研发的具有完全知识产权的深�
 版本信息
 --------
 
-本次Quantization-Tools发布版本号为 v2.3.2。
+本次Quantization-Tools发布版本号为 v2.5.0。
 
 版本特性
 --------

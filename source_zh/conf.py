@@ -16,7 +16,6 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-
 # -- Project information -----------------------------------------------------
 
 project = u'Quantization-Tools'
@@ -24,10 +23,9 @@ copyright = u'2019, Sophon'
 author = u'Sophon'
 
 # The short X.Y version
-version = u''
+version = u'2.4.0'
 # The full version, including alpha/beta/rc tags
 release = u''
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -73,7 +71,6 @@ exclude_patterns = []
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
 
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -102,12 +99,10 @@ html_static_path = ['_static']
 #
 # html_sidebars = {}
 
-
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'Quantization-Tools-User_Guide'
-
 
 # -- Options for LaTeX output ------------------------------------------------
 
@@ -116,30 +111,27 @@ latex_elements = {
     'classoptions': ',english',
     'inputenc': '',
     'utf8extra': '',
-    'preamble': '''
-        \usepackage{xeCJK}
-        \usepackage{indentfirst}
-        \setlength{\parindent}{2em}
+    'figure_align': 'H',
+    # Additional stuff for the LaTeX preamble.
+    #
+    'preamble': r'''
+\usepackage{xeCJK}
+\usepackage{indentfirst}
+\setlength{\parindent}{2em}
+\usepackage{float}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\chaptername}
+\fancyfoot[R]{\thepage}
     ''',
     'extraclassoptions': 'openany,oneside',
-    # The paper size ('letterpaper' or 'a4paper').
-    #
-    # 'papersize': 'letterpaper',
-
     # The font size ('10pt', '11pt' or '12pt').
     #
     # 'pointsize': '10pt',
-
-    # Additional stuff for the LaTeX preamble.
-    #
-    # 'preamble': '',
-
-    # Latex figure (float) alignment
-    #
-    # 'figure_align': 'htbp',
 }
-    # \setCJKmainfont[BoldFont=Heiti SC Medium]{Heiti SC Light}
-    # \setCJKmonofont[BoldFont=Times Regular]{Times Italic}
+# \setCJKmainfont[BoldFont=Heiti SC Medium]{Heiti SC Light}
+# \setCJKmonofont[BoldFont=Times Regular]{Times Italic}
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
@@ -149,16 +141,12 @@ latex_documents = [
      u'BITMAIN', 'manual'),
 ]
 
-
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'Quantization-Tools', u'Quantization-Tools User Guide',
-     [author], 1)
-]
-
+man_pages = [(master_doc, 'Quantization-Tools',
+              u'Quantization-Tools User Guide', [author], 1)]
 
 # -- Options for Texinfo output ----------------------------------------------
 
@@ -170,7 +158,6 @@ texinfo_documents = [
      author, 'Sophon Inference', 'One line description of project.',
      'Miscellaneous'),
 ]
-
 
 # -- Options for Epub output -------------------------------------------------
 
@@ -188,7 +175,6 @@ epub_title = project
 
 # A list of files that should not be packed into the epub file.
 epub_exclude_files = ['search.html']
-
 
 # -- Extension configuration -------------------------------------------------
 

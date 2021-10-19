@@ -1,638 +1,579 @@
-附录
-====
+.. _demos_list:
 
-.. _supported-layer:
+附录 2
+========
 
-支持的layer
------------
-
--  **A**
+release包中的examples下有calibraton相关的demo程序，目录如下：
 
   ::
 
-     active
-     arg
-     AnnotatedData
-     Accuracy
-
-
--  **B**
-
-  ::
-
-     Bias
-     Batchnorm
-     BatchToSpace
-     BroadcastBinary
-     BN
-
--  **C**
-
-  ::
-
-     Compare
-     Concat
-     ConstBinary
-     Convolution
-     Crop
-     CPU
-
--  **D**
-
-  ::
-
-     Data
-     Deconvolution
-     DetectionOutput
-     Dropout
-     DummyData
-
--  **E**
-
-  ::
-
-     ELU
-     Eltwise
-     EltwiseBinary
-     ExpandDims
-
--  **F**
-
-  ::
-
-     Flatten
-
--  **I**
-
-  ::
-
-     InnerProduct
-     Interp
-     ImageData
-
--  **L**
-
-  ::
-
-     LRN
-
--  **N**
-
-  ::
-
-     Normalize
-
--  **O**
-
-  ::
-
-     Output
-
--  **P**
-
-  ::
-
-     Prelu
-     PSROIPooling
-     Pad
-     Permute
-     Pooling
-     PoolingTF
-     PriorBox
-
--  **R**
-
-  ::
-
-     ROIPooling
-     RPN
-     Relu
-     Reciprocal
-     Reduce
-     ReduceFull
-     Reorg
-     Reshape
-
--  **S**
-
-  ::
-
-     Scale
-     Select
-     ShapAssign
-     ShapeConst
-     ShapeOp
-     ShapePack
-     ShapeRef
-     ShapeSlice
-     ShuffelChannel
-     Sigmoid
-     Slice
-     Softmax
-     SoftmaxWithLoss
-     SpaceToBatch
-     Split
-     SplitTF
-     squeeze
-     StrideSlice
-
--  **T**
-
-  ::
-
-     Tile
-     TopK
-     Transpose
-
--  **U**
-
-  ::
-
-     Upsample
-     upsampleCopy
-
-
--  **Y**
-
-  ::
-
-     Yolov3DetectionOutputupsampleCopy
-
-
-.. _c-api:
-
-c接口API函数
-------------
-
-- Ufw::set_mode(Ufw::mode)
-
-  - 功能：Framework
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   +--------------+---------------+--------------------------------------------------+
-   |Parameter     |Type           |Description                                       |
-   +--------------+---------------+--------------------------------------------------+
-   |mode          |Input          |设置 Uframwork的运行模式，其取值见下文            |
-   |              |               |                                                  |
-   |              |               |CPU: 输入时float32的Umodel，并且在CPU下运行       |
-   |              |               |                                                  |
-   |              |               |INT8_NEURON: 输入时int8的Umodel，并且在CPU下运行其|
-   |              |               |余可取值暂时未用                                  |
-   +--------------+---------------+--------------------------------------------------+
-
-- Net(const string& param_file, Phase phase)
-
-  - 功能：通过输入的protxt文件，建立net
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   +------------+----------+--------------------------------------------------+
-   |Parameter   |Type      |Description                                       |
-   +------------+----------+--------------------------------------------------+
-   |param_file  |Input     |prototxt的文件名                                  |
-   +------------+----------+--------------------------------------------------+
-   |phase       |Input     |::                                                |
-   |            |          |                                                  |
-   |            |          |  enum Phase {                                    |
-   |            |          |     TRAIN = 0,                                   |
-   |            |          |     TEST = 1 };                                  |
-   |            |          |                                                  |
-   |            |          |推理时采用TEST                                    |
-   +------------+----------+--------------------------------------------------+
-
-- void Net<Dtype>::CopyTrainedLayersFrom(const string& trained_filename)
-
-  - 功能：给已经建立好的网络的各层系数幅值
-  - 输入参数：
-
-.. table::
-   :widths: 30 20  50
-
-   =================  =======  ================================
-   Parameter          Type     Description
-   -----------------  -------  --------------------------------
-   trained_filename   Input    umodel的文件名 \*.fp32umodel或者\*.int8umodel
-   =================  =======  ================================
-
-- const vector<Blob<Dtype>*>& Forward（）
-
-  - 功能：做一次网络的前向运算
-  - 输入参数：
-
-
-.. table::
-   :widths: 30 20 50
-
-   =========  =====  =============
-   Parameter  Type   Description
-   ---------  -----  -------------
-   无          无      无
-   =========  =====  =============
-
-- const shared_ptr<Blob<Dtype> >  blob_by_name(const string& blob_name)
-
-  - 功能：根据输入的blob的名字，返回指向该blob的指针
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   ========== ======= ==============
-   Parameter  Type    Description
-   ---------- ------- --------------
-   blob_name  input   blob的名字
-   ========== ======= ==============
-
-- void Blob<Dtype>::Reshape(const int num, const int channels, const int height, const int width)
-
-  - 功能：根据输入参数，重新计算blob的维度
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   ==========  ====== =================
-   Parameter   Type   Description
-   ----------  ------ -----------------
-   num         input  输入图片的batch_size
-   channels    input  输入图片的channel数
-   height      input  输入图片的高度
-   width       input  输入图片的宽度
-   ==========  ====== =================
-
-- void Blob<Dtype>:: Reshape(const vector<int>& shape)
-
-  - 功能：根据输入参数，重新计算blob的维度
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   +--------------------+----------+--------------------------------------------------+
-   |Parameter           |Type      |Description                                       |
-   +--------------------+----------+--------------------------------------------------+
-   |shape               |input     |shape[0] 中存放num                                |
-   |                    |          |shape[1] 中存放channels                           |
-   |                    |          |shape[2] 中存放height                             |
-   |                    |          |shape[3] 中存放 width                             |
-   +--------------------+----------+--------------------------------------------------+
-
-- int Blob<Dtype>:: count()
-
-  - 功能：返回blob中存的数据个数
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  =====   =============
-   Parameter  Type    Description
-   无
-   =========  =====   =============
-
-- int Blob<Dtype>:: num()
-
-  - 功能：返回blob的0维度信息
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  =====   =============
-   Parameter  Type    Description
-   无
-   =========  =====   =============
-
-- int Blob<Dtype>:: channels()
-
-  - 功能：返回blob的1维度信息
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  =====   =============
-   Parameter  Type    Description
-   无
-   =========  =====   =============
-
-
-- int Blob<Dtype>:: height()
-
-  - 功能：返回blob的2维度信息
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ====  =============
-   Parameter  Type  Description
-   无
-   =========  ====  =============
-
-
-- int Blob<Dtype>:: width()
-
-  - 功能：返回blob的3维度信息
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ====  =============
-   Parameter  Type  Description
-   无
-   =========  ====  =============
-
-
-- void Blob<Dtype>::universe_fill_data(const float* p_mat)
-
-  - 功能：用指针p_mat指向的数据填充blob
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ============    =============
-   Parameter  Type            Description
-   p_mat      const float*    用该指针指向的数据填充blob
-   =========  ============    =============
-
-- void Blob<Dtype>::universe_fill_data(const cv::Mat& mat)
-
-  - 功能：用cv::Mat mat中的数据填充blob
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ==========    =============
-   Parameter  Type          Description
-   mat        cv::Mat       用cv::Mat mat中的数据填充blob
-   =========  ==========    =============
-
-- Dtype*  Blob<Dtype>::universe_get_data()
-
-  - 功能：返回blob中数据的指针，该指针是float*类型的
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ==========    =============
-   Parameter  Type          Description
-   无
-   =========  ==========    =============
-
-- void ExtractFeaturesInit(std::string extract_feature_blob_names,
-  std::string save_feature_dataset_names,
-  int max_iteration)
-
-  - 功能：ExtractFeatures模块的功能是读取某blob的数据，存储成lmdb。
-    该函数完成该模块的初始化工作
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   +--------------------------+----------+------------------------------------------------------------+
-   |Parameter                 |Type      |Description                                                 |
-   +--------------------------+----------+------------------------------------------------------------+
-   |extract_feature_blob_names|string    |要存储的blob的名字。                                        |
-   |                          |          |例：string extract_feature_blob_names =                     |
-   |                          |          |“data” 可以一次存储多个blob，存储多个时，用逗号隔开例：     |
-   |                          |          |string extract_feature_blob_names = “data，conv1_out”       |
-   +--------------------------+----------+------------------------------------------------------------+
-   |save_feature_dataset_names|string    |要存储的lmdb数据集的名字。例： string                       |
-   |                          |          |save_feature_dataset_names = “data_save.lmdb” 可以一次存储多|
-   |                          |          |个，用逗号隔开例：string save_feature_dataset_names =       |
-   |                          |          |“data_save.lmdb，conv1_out_save.lmdb”                       |
-   +--------------------------+----------+------------------------------------------------------------+
-   |max_iteration             |int       |存储的图片个数                                              |
-   +--------------------------+----------+------------------------------------------------------------+
-
-- bool ExtractFeatures ( )
-
-  - 功能：读取blob内的数据，存成lmdb的格式。
-    每存一次内部计数加1，当达到初始化参数配置的max_iteration时，停止更新新的数据
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ======  =============
-   Parameter  Type    Description
-   无          无
-   =========  ======  =============
-
-.. _python-api:
-
-python接口
-----------
-
-- ufw.set_mode_cpu()
-
-  - 功能：设置网络工作在fp32 cpu模式下
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ====== =============
-   Parameter  Type   Description
-   无
-   =========  ====== =============
-
-- ufw.set_mode_cpu_int8()
-
-  - 功能：设置网络工作在int8 cpu模式下
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ====== =============
-   Parameter  Type   Description
-   无
-   =========  ====== =============
-
-- ufw.Net(model, weight, ufw.TEST)
-
-  - 功能：采用model，weight建立网络
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ====== =============
-   Parameter  Type   Description
-   model             表示网络结构的prototxt文件名
-   weight            表示网络系数的文件名
-   ufw.TEST          表示建立推理网络
-   =========  ====== =============
-
-- net.fill_blob_data({blob_name: input_data})
-
-  - 功能：
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ====== =============
-   Parameter  Type   Description
-   无
-   =========  ====== =============
-
-
-- net. get_blob_data (blob_name)
-
-  - 功能：
-  - 输入参数：
-
-.. table::
-   :widths: 30 20 50
-
-   =========  ====== =============
-   Parameter  Type   Description
-   无
-   =========  ====== =============
-
-
-
-yolov3DetectionOutputlayer说明
-------------------------------
-
-
-.. figure:: ../_static/ch7_001.png
-   :width: 5.76806in
-   :height: 2.48588in
-   :align: center
-
-   yolov3DetectionOutputlayer 与 三个输入分支的关系
-
-.. table:: yolo各分支特征
-
-   =======  ======= ======== =========  ======  ======  ======= ======  ======  ========
-   分支              y1分支                      y2分支                   y3分支
-   -------  --------------------------  ----------------------- ------------------------
-   特征图            13*13                       26*26                   52*52
-   -------  --------------------------  ----------------------- ------------------------
-   先验框    116*90  156*198   373*326   30*61   62*45   59*119  10*13   16*30   33*23
-   =======  ======= ======== =========  ======  ======  ======= ======  ======  ========
-
-
-本层的配置参数
-~~~~~~~~~~~~~~
-
-  ::
-
-    layer {
-        bottom: "y1-conv-out"                  #y1分支的输出blob名字
-        bottom: " y2-conv-out "                #y2分支的输出blob名字
-        bottom: " y3-conv-out "                #y3分支的输出blob名字
-        type: "Yolov3DetectionOutput"
-        top: "detection_out"
-        name: "detection_out"
-        yolov3_detection_output_param {
-            nms_threshold: 0.45
-            confidence_threshold: 0.5
-            num_classes: 80
-            biases: 10        #y3分支先验框
-            biases: 13        #y3分支先验框
-            biases: 16        #y3分支先验框
-            biases: 30        #y3分支先验框
-            biases: 33        #y3分支先验框
-            biases: 23        #y3分支先验框
-            biases: 30        #y2分支先验框
-            biases: 61        #y2分支先验框
-            biases: 62        #y2分支先验框
-            biases: 45        #y2分支先验框
-            biases: 59        #y2分支先验框
-            biases: 119       #y2分支先验框
-            biases: 116       #y1分支先验框
-            biases: 90        #y1分支先验框
-            biases: 156       #y1分支先验框
-            biases: 198       #y1分支先验框
-            biases: 373       #y1分支先验框
-            biases: 326       #y1分支先验框
-            mask: 6
-            mask: 7
-            mask: 8
-            mask: 3
-            mask: 4
-            mask: 5
-            mask: 0
-            mask: 1
-            mask: 2
-            mask_group_num: 3
-            anchors_scale: 32      #y1分支feature-map对输入图像相比的下采样
-            anchors_scale: 16      #y2分支feature-map对输入图像相比的下采样
-            anchors_scale: 8       #y3分支feature-map对输入图像相比的下采样
-        }
-    }
-
-
-
-本层的输出
-~~~~~~~~~~
-
-a) 输出维度为
-
-  ::
-
-     （1,1，num_box,7）
-
-
-b) num_box的解释：
-   表示检测到的框的个数，
-   当检测到的框的个数为0时，num_box=batch_size（输出维度不能为0，所以用batch_size来填充，用下文中的indx0来标识是否真的检测到物体）
-
-c) “7”的解释
-
-  - indx0：表示是否检测到物体，0：检测到物体；-1： 未检测到物体
-  - indx1：检测到的物体类别
-  - indx2：confidence值
-  - indx3：检测框的x    ∈[0,1], 以网络输入的W做了归一化
-  - indx4：检测框的y    ∈[0,1], 以网络输入的H做了归一化
-  - indx5：检测框的w    ∈[0,1], 以网络输入的W做了归一化
-  - indx6：检测框的h    ∈[0,1], 以网络输入的H做了归一化
-
-应用程序对检测框的后处理
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. _ch7-002:
-.. figure:: ../_static/ch7_002.png
-   :width: 5.76806in
-   :height: 1.86306in
-   :align: center
-
-   yolov3对输入数据的预处理
-
-
-
-根据yolov3网络的描述，其对输入图片的预处理如图 :ref:`ch7-002` 所示：
-
-a) yolov3网络要求输入是W=H=416
-b) 将原始图片在保持长宽比的情况下进行压缩，保证较长的一边压缩到416
-c) 较短的一边两侧进行填充，扩充到416
-
-因为yolov3DetectionOutputlayer输出的x，y，w，h是基于W=H=416进行归一化的，需要应用程序进一步后处理，以映射到原始图片的坐标上。
+     examples
+     |--- calibration
+     |    `-- examples
+     |       |--- classify_demo
+     |       |--- create_lmdb_demo
+     |       |--- face_demo
+     |       |--- object_detection_python_demo
+     |       |--- caffemodel_to_fp32umodel_demo
+     |       |--- tf_to_fp32umodel_demo
+     |       |--- pt_to_fp32umodel_demo
+     |       |--- mx_to_fp32umodel_demo
+     |       |--- dn_to_fp32umodel_demo
+     |       |--- mtcnn_demo
+     |       |--- auto_calib
+     |        `-- view_demo
+     |
+
+
+.. _classify-demo:
+
+示例1：classify\_demo
+~~~~~~~~~~~~~~~~~~~~~
+
+该用例将caffe框架下的resnet18网络转换成int8umodel，并测试float32原始网络的精度、测试转换后的int8网络的精度。
+
+a) 转换成int8umodel
 
   .. code-block:: shell
 
-     W=416       #yolo网络要求的输入图片的大小
-     H=416       #yolo网络要求的输入图片的大小
-     scale_factor = min(W/img_w, H/img_h)     #img_w，img_h是原始图片的大小
-     x_abs = (2*W*x-W+img_w*scale_factor)/(2*scale_factor)
-     y_abs = (2*H*y-H+img_h*scale_factor)/(2*scale_factor)
-     w_abs = w*W/scale_factor
-     h_abs = h*H/scale_factor
+     $ cd <release dir>/examples/calibration/classify_demo
+     $ source classify_demo.sh
+     $ convert_to_int8_demo
+
+运行完毕，结果如 :ref:`fig-ch3-001` 所示。
+
+.. _fig-ch3-001:
+
+.. figure:: ../_static/ch3_001.png
+   :width: 5.76806in
+   :height: 0.64373in
+   :align: center
+
+   resnet18转化int8umodel成功结果
 
 
-这里x_abs，y_abs，w_abs, h_abs表示的是原始图片上的绝对坐标，可以直接用于画框
+b) 测试原始的float32网络精度
+
+  .. code-block:: shell
+
+     $ test_fp32_demo
+
+运行完毕，结果如 :ref:`fig-ch3-002` 所示。
+
+.. _fig-ch3-002:
+
+.. figure:: ../_static/ch3_002.png
+   :width: 5.76806in
+   :height: 1.03729in
+   :align: center
+
+   resnet18 fp32umodel精度结果
+
+
+c) 测试转换生成的int8网络的精度
+
+  .. code-block:: shell
+
+     $ test_int8_demo
+
+运行完毕，结果如 :ref:`fig-ch3-003` 所示。
+
+.. _fig-ch3-003:
+
+.. figure:: ../_static/ch3_003.png
+   :width: 5.76806in
+   :height: 1.06497in
+   :align: center
+
+   resnet18 int8umodel精度结果
+
+.. _create-lmdb-demo:
+
+示例2：create\_lmdb\_demo
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+该用例将jpg图片转换成lmdb数据集。
+
+a) 建立环境
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/create_lmdb_demo
+     $ source create_lmdb_demo.sh
+
+b) 将jpg转换成lmdb
+
+  .. code-block:: shell
+
+     $ convert_imageset_to_lmdb_demo
+
+运行完毕，结果如 :ref:`fig-ch3-004` 所示。
+
+.. _fig-ch3-004:
+
+.. figure:: ../_static/ch3_004.png
+   :width: 5.76806in
+   :height: 0.95149in
+   :align: center
+
+   生成LMDB数据成功
+
+同时，在examples/calibration/create_lmdb_demo/images下会生成Imglist.txt文件、
+img_lmdb文件夹。如 :ref:`fig-ch3-005` 所示。
+
+.. _fig-ch3-005:
+
+.. figure:: ../_static/ch3_005.png
+   :width: 5.76806in
+   :height: 0.90392in
+   :align: center
+
+   正确生成的LMDB数据集
+
+
+.. _face-demo:
+
+示例3：face_demo
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+该用例将caffe框架下的人脸检测网络squeezenet转换成int8umodel,并测试float32原始网络，
+int8网络对图片的检测结果。
+
+
+a) 建立环境
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/face_demo
+     $ source face_demo.sh
+
+b) 用float32网络检测图片
+
+  .. code-block:: shell
+
+     $ detect_squeezenet_fp32
+
+运行完毕，结果如 :ref:`fig-ch3-006` 所示。
+
+.. _fig-ch3-006:
+
+.. figure:: ../_static/ch3_006.png
+   :width: 5.76806in
+   :height: 1.45226in
+   :align: center
+
+   squeezenet fp32umodel运行成功结果
+
+
+同时在examples/calibration/face_demo生成检测之后的图片detection.png，如
+:ref:`fig-ch3-007`: （如在docker内运行，看不到detection.png，请刷新目录）
+
+.. _fig-ch3-007:
+
+.. figure:: ../_static/ch3_007.png
+   :width: 5.76806in
+   :height: 3.31867in
+   :align: center
+
+   squeezenet fp32umodel检测效果
+
+
+c）转换成int8umodel
+
+  .. code-block:: shell
+
+     $ convert_squeezenet_to_int8
+
+.. figure:: ../_static/ch3_008.png
+   :width: 5.76806in
+   :height: 0.55904in
+   :align: center
+
+   squeezenet int8umodel转化成功输出
+
+
+d）用int8网络检测图片
+
+  .. code-block:: shell
+
+     $ detect_squeezenet_int8
+
+运行完毕，结果如 :ref:`fig-ch3-009`
+
+.. _fig-ch3-009:
+
+.. figure:: ../_static/ch3_009.png
+   :width: 5.76806in
+   :height: 1.74415in
+   :align: center
+
+   squeezenet int8umodel检测运行成功输出
+
+同时在examples/calibration/face_demo生成检测之后的图片detection_int8.png，如
+:ref:`fig-ch3-010` 所示。
+
+.. _fig-ch3-010:
+
+.. figure:: ../_static/ch3_010.png
+   :width: 5.76806in
+   :height: 3.57491in
+   :align: center
+
+   squeezenet int8umodel检测效果
+
+
+.. _object-detection-python-demo:
+
+示例4：object_detection_python_demo
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+该用例以ssd_vgg300为例，描述python接口的使用方法，以方便用fp32umodel或者int8umodel建立框架程序，用于精度测试或者用于应用程序。
+
+a) 用float32网络检测图片
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/object_detection_python_demo
+     $ python3 ssd_vgg300_fp32_test.py
+
+运行完毕，结果如 :ref:`fig-ch3-011` 所示。
+
+.. _fig-ch3-011:
+
+.. figure:: ../_static/ch3_011.png
+   :width: 5.76806in
+   :height: 0.23471in
+   :align: center
+
+   ssd vgg300 fp32umodel运行成功输出
+
+同时在examples/calibration/object_detection_python_demo生成检测之后的图片
+person_fp32_detected.jpg，如 :ref:`fig-ch3-012` 所示。
+
+
+.. _fig-ch3-012:
+
+.. figure:: ../_static/ch3_012.png
+   :width: 5.76806in
+   :height: 4.41573in
+   :align: center
+
+   ssd vgg300 fp32umodel检测效果
+
+
+b) 用int8网络检测图片
+
+  .. code-block:: shell
+
+     python3 ssd_vgg300_int8_test.py
+
+运行完毕，结果如 :ref:`fig-ch3-013` 所示。
+
+.. _fig-ch3-013:
+
+.. figure:: ../_static/ch3_013.png
+   :width: 5.76806in
+   :height: 0.19447in
+   :align: center
+
+   ssd vgg300转化int8umodel成功输出
+
+同时在examples/calibration/object_detection_python_demo生成检测之后的图片
+person_int8_detected.jpg，如 :ref:`fig-ch3-014` 所示。
+
+.. _fig-ch3-014:
+
+.. figure:: ../_static/ch3_014.png
+   :width: 5.76806in
+   :height: 4.38897in
+   :align: center
+
+   ssd vgg300 int8umodel检测效果
+
+.. _example_5:
+
+示例5：caffemodel_to_fp32umodel_demo
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+该用例程序以resnet50为例，描述如何将caffe框架下的模型文件（\*.caffemodel,
+\*prototxt）转换成fp32umodel。
+
+运行命令
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/caffemodel_to_fp32umodel_demo
+     $ python3 resnet50_to_umodel.py
+
+运行结果如 :ref:`fig-ch3-015` 所示。
+
+.. _fig-ch3-015:
+
+.. figure:: ../_static/ch3_015.png
+   :width: 4.614448in
+   :height: 2.1556in
+   :align: center
+
+   Caffe模型转化fp32umodel成功结果
+
+在当前文件夹下，新生成compilation文件夹，存放新生成的\*.fp32umodel 与\*.prototxt：
+
+.. figure:: ../_static/ch3_016.png
+   :width: 5.76806in
+   :height: 1.23774in
+   :align: center
+
+   Caffe模型转化fp32umodel成功输出
+
+
+.. _example_6:
+
+示例6：tf_to_fp32umodel_demo
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+该用例程序以resnet50_v2为例，描述如何将tensorflow框架下的模型文件（\*.pb）转换成
+fp32umodel。
+
+
+运行命令：
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/tf_to_fp32umodel_demo
+     $ python3 resnet50_v2_to_umodel.py
+
+运行结果如 :ref:`fig-ch3-017` 所示。
+
+.. _fig-ch3-017:
+
+.. figure:: ../_static/ch3_017.png
+   :width: 4.614448in
+   :height: 2.33997in
+   :align: center
+
+   Tensorflow模型转化fp32umodel成功结果
+
+
+在当前文件夹下，新生成compilation文件夹，存放新生成的\*.fp32umodel 与\*.prototxt：
+
+
+.. figure:: ../_static/ch3_018.png
+   :width: 5.76806in
+   :height: 1.37824in
+   :align: center
+
+   Tensorflow模型转化fp32umodel成功输出
+
+示例7：pt_to_fp32umodel_demo
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+该用例程序以mobilenet_v2为例，描述如何将pytorch框架下的模型文件（\*.pt）转换成
+fp32umodel。
+
+
+运行命令：
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/pt_to_fp32umodel_demo
+     $ python3 mobilenet_v2_to_umodel.py
+
+
+在当前文件夹下，新生成compilation文件夹，存放新生成的\*.fp32umodel 与\*.prototxt。
+更详细的转化流程和细节请参考 :ref:`pytorch-to-umodel` 节内容。
+
+
+示例8：mx_to_fp32umodel_demo
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+该用例程序以mobilenet0.25为例，描述如何将mxnet框架下的模型文件（\*.json, \*.params）转换成
+fp32umodel。
+
+
+运行命令：
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/mx_to_fp32umodel_demo
+     $ python3 mobilenet0.25_to_umodel.py
+
+
+在当前文件夹下，新生成compilation文件夹，存放新生成的*.fp32umodel 与*.prototxt。
+更详细的转化流程和细节请参考 :ref:`mxnet-to-umodel` 节内容。
+
+
+示例9：dn_to_fp32umodel_demo
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+该用例程序以yolov3为例，描述如何将darknet框架下的模型文件（\*.cfg, \*.weights）转换成
+fp32umodel。
+
+
+运行命令：
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/dn_to_fp32umodel_demo
+     $ get_model.sh # download model
+     $ python3 yolov3_to_umodel.py
+
+
+在当前文件夹下，新生成compilation文件夹，存放新生成的\*.fp32umodel 与\*.prototxt。
+更详细的转化流程和细节请参考 :ref:`darknet-to-umodel` 节内容。
+
+
+示例10：on_to_fp32umodel_demo
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+该用例程序以postnet为例，描述如何将onnx模型文件（\*.onnx）转换成fp32umodel。
+
+
+运行命令：
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/on_to_fp32umodel_demo
+     $ python3 postnet_to_umodel.py
+
+
+在当前文件夹下，新生成compilation文件夹，存放新生成的\*.fp32umodel 与\*.prototxt。
+更详细的转化流程和细节请参考 :ref:`onnx-to-umodel` 节内容。
+
+
+.. _mtcnn-demo:
+
+示例11：mtcnn_demo
+~~~~~~~~~~~~~~~~~~
+
+该用例以mtcnn为例，描述如何量化级联网络：包括为级联网络准备lmdb数据集，量化各网
+络，运行demo程序。
+
+
+a) 建立环境
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/mtcnn_demo
+     $ source mtcnn_demo.sh
+
+b) 编译代码
+
+  .. code-block:: shell
+
+     $ mtcnn_build
+
+c) 生成各网络的lmdb数据集
+
+  .. code-block:: shell
+
+     $ dump_fddb_lmdb
+
+运行完毕后，会在当前目录下生成pnet，rnet，onet的lmdb数据集，如
+:ref:`fig-ch3-019` 所示。
+
+
+.. _fig-ch3-019:
+
+.. figure:: ../_static/ch3_019.png
+   :width: 5.76806in
+   :height: 1.30480in
+   :align: center
+
+   mtcnn数据集
+
+
+d) 量化各网络
+
+量化pnet，在./model 目录下生成pnet量化后的模型：
+
+  .. code-block:: shell
+
+     $ convert_mtcnn_demo_pnet_to_int8_pb
+
+量化rnet，在./model 目录下生成rnet量化后的模型：
+
+  .. code-block:: shell
+
+     $ convert_mtcnn_demo_rnet_to_int8_pb
+
+量化onet，在./model 目录下生成onet量化后的模型：
+
+  .. code-block:: shell
+
+     $ convert_mtcnn_demo_onet_to_int8_pb
+
+e) 运行fp32网络的demo
+
+  .. code-block:: shell
+
+     $ run_demo_float
+
+f) 运行int8网络的demo
+
+  .. code-block:: shell
+
+     $ run_demo_int8
+
+
+示例12：auto_calib
+~~~~~~~~~~~~~~~~~~~~
+
+
+这个目录下的自动量化工具是处于beta阶段的一键式自动量化工作，整个量化、自动调试及
+精度测试流程，优先推荐客户使用，它具有如下优势：
+1) 一键式完成从原始框架模型到bm1684芯片 bmodel的转换。
+2) 方便用户对int8模型的精度进行大批量的验证，形成质量优化提升闭环流程。
+3) 可自动进行量化策略搜索，找到满足精度要求的最佳量化策略。
+4) 方便用户将bm1684的量化流程整合到自有训练流程。
+
+详细使用方法参见“auto_calib manual.pdf”。
+
+
+.. _view-demo:
+
+
+示例13：view_demo
+~~~~~~~~~~~~~~~~~
+
+该用例程序以resnet18为例，描述如何分析量化后int8模型与原始float模型的精度差异。
+
+运行命令：
+
+  .. code-block:: shell
+
+     $ cd <release dir>/examples/calibration/view_demo
+     $ source jupyter_server.sh
+
+
+运行结果如 :ref:`fig-ch3-020` 所示。
+
+.. _fig-ch3-020:
+
+.. figure:: ../_static/ch3_020.png
+   :width: 5.76806in
+   :height: 0.84488in
+   :align: center
+
+   可视化分析工具启动成功结果
+
+根据建立docker时设置的端口号（这里以8888为例），在浏览器中输入localhost:8888，填入上述命令运行日志的token信息，进入Jupyter页面。
+
+.. figure:: ../_static/ch3_021.png
+   :width: 5.76806in
+   :height: 1.37371in
+   :align: center
+
+   可视化分析工具目录
+
+选择calibration_view.ipynb，打开后在代码区执行运行。可以得到resnet18 int8模型和
+float模型前向运算每层的比对结果。图 :ref:`fig-ch3-022` 为其中一个层的比对结果，
+点击layer可以查看不同层的比对。
+
+
+.. _fig-ch3-022:
+
+.. figure:: ../_static/ch3_022.png
+   :width: 5.76806in
+   :height: 5.623489in
+   :align: center
+
+   可视化分析工具运行效果

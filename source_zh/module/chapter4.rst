@@ -1,7 +1,9 @@
+.. _quant_steps:
+
 量化步骤
 ========
 
-转换Caffe框架下的网络，需要以下5步骤:
+以量化Caffe框架下的网络为例，需要以下5步骤:
 
 - 准备lmdb数据集
 
@@ -18,19 +20,17 @@
 准备lmdb数据集
 --------------
 
-- Quantization-tools对输入数据的格式要求是[N,C,H,W]  (即先存放W数据，再存放H数据，依次类推)
+- Quantization-tools对输入数据的格式要求是[N,C,H,W]  (即先按照W存放数据，再按照H存放数据，依次类推)
 - Quantization-tools对输入数据的C维度的存放顺序与原始框架保持一致。例如caffe框架要求的C维度存放顺序是BGR；tensorflow要求的C维度存放顺序是RGB
 
-.. _convert-lmdb:
-
-将数据转换成lmdb格式
-~~~~~~~~~~~~~~~~~~~~
 
 需要将图片转换成lmdb格式的才能进行量化。 将数据转换成lmdb数据集有两种方法：
 
-a) 运用convert_imageset工具
+a) 运用convert_imageset工具，方法见下文
 
-b) 运用u_framework接口，在网络推理过程中将第一层输入抓取存成lmdb
+b) 运用u_framework接口，在网络推理过程中将第一层输入抓取存成lmdb，方法请参考 :ref:`u_framework`
+
+转换流程见图4.1
 
 .. _ch4-001:
 
@@ -44,23 +44,21 @@ b) 运用u_framework接口，在网络推理过程中将第一层输入抓取存
 运用convert_imageset工具
 ````````````````````````
 
-章节 :ref:`create-lmdb-demo` 作为示例程序，描述了convert_imageset的使用Quantization-tool工具包包括了将图像转换成lmdb的工具：convert_imageset。
+以 :ref:`create-lmdb-demo` 作为示例程序，描述了convert_imageset的使用。
 
-convert_imageset的使用方法见如下：
-
-该工具通过命令行方式使用，命令行的格式如下：
+convert_imageset工具通过调用Opencv接口将图片数据进行解码，转化为CHW排列的浮点数据，然后将其写入lmdb。convert_imageset通过命令行方式使用，命令行的参数配置如下：
 
   .. code-block:: shell
 
      $ convert_imageset \
-                  ImgSetRootDir/ \     #图像集的根目录
+                  ImgSetRootDir/ \     #图片集的根目录
                   ImgFileList.txt\     #图片列表及其标注
                   imgSetFolder   \     #生成的lmdb的文件夹
                   可选参数
 
 
-- ImgSetRootDir：  图像集的根目录
-- ImgFileList.txt：  该文件中记录了图像集中的各图样的相对路径（以ImgSetRootDir为根目录）和相应的标注，假如ImgFileList.txt 的内容为
+- ImgSetRootDir：  图片集的根目录
+- ImgFileList.txt：  该文件中记录了图片集中的各图样的相对路径（以ImgSetRootDir为根目录）和相应的标注（非必须），假如ImgFileList.txt 的内容为
 
   ::
 
@@ -74,7 +72,7 @@ convert_imageset的使用方法见如下：
 
 **注意** “subfolder1/file1.JPEG” 与 “7”之间有一个空格。
 
-- imgSetFolder：表示生成的lmdb的文件夹
+- imgSetFolder：表示生成的lmdb所在的文件夹
 
 - 可选参数设置
 
@@ -102,177 +100,467 @@ convert_imageset的使用方法见如下：
 
     --encode_type：string类型，默认值为""，用于指定用何种编码方式存储编码后的图像，取值为编码方式的后缀（如'png','jpg',...）
 
-.. _u_framework:
 
-运用u_framework c++接口
-`````````````````````
+并非所有的量化数据都需要label，多数情况下仅仅提供输入数据就可完成量化。只有需要进行后处理或者精度统计
+时候才需要label进行GroundTruth数据传递。在 :ref:`create-lmdb-demo` 例子中，简单的将某个目录下的量化数据转化为lmdb
+就已经满足需求。
 
-当网络是级联网络，或者网络有特殊的数据预处理而u_framework不支持的，可以考虑使用u_framework提供的接口存储lmdb数据集。
+生成lmdb需要的ImgFileList文件可以参考例子中的脚本：
 
-章节 :ref:`mtcnn-demo` 描述了级联网络如何通过该接口来存储lmdb。
+  .. code-block:: shell
 
-此时需要基于u_framework搭建一个网络推理的框架，如图 :ref:`ch4-002` 所示
+      function cali_gen_imagelist()
+      {
+         pushd $IMG_DIR
+         rm -rf ImgList.txt
+         find ./ -name  *cat.jpg | cut -d '/' -f2 | sed "s/$/ 1/">>ImgList.txt
+         find ./ -name *bike.jpg | cut -d '/' -f2 | sed "s/$/ 2/">>IList2.txt
 
-.. _ch4-002:
+         cat IList2.txt>>ImgList.txt
+         rm -rf IList2.txt
 
-.. figure:: ../_static/ch4_002.png
-   :width: 5.0in
-   :align: center
-
-   通过u_framework接口存储lmdb数据集框架
-
-1) 包含必要头文件
-
-  .. code-block:: c++
-
-     #include <ufw/ufw.hop>
-     using namespace ufw;
-
-2) 设置模式
-
-  .. code-block:: c++
-
-     Ufw::set_mode(Ufw::FP32);                  #设置为Ufw::FP32
-
-3) 设置存储的图片数量
-
-  .. code-block:: c++
-
-     max_iterations = 200
-
-4) 建立A_net
-
-  .. code-block:: c++
-
-     A_net_= new Net<float>(proto_file, TEST);   # proto_file描述网络结构的文件
-     A_net_-> CopyTrainedLayersFrom(model_file); # model_file描述网络系数的文件
-     A_net_-> ExtractFeaturesInit();             # 完成存储lmdb功能模块的初始化
-
-各函数的详细定义见章节“7.2c接口API函数”。
-
-5) 建立B_net
-
-同4)
-
-6) 读入图片，预处理
-
-该步骤与待测的检测网络本身特性有关。可以使用opencv的函数。
-
-7) 给网络填充数据
-
-将经过预处理的图片数据填充给网络。
-
-  .. code-block:: c++
-
-     //根据输入blob的名字（这里是“data”），得到该blob的指针
-     Blob<float> *input_blob = (net_-> blob_by_name("data")).get();
-
-     //根据输入图片的信息，对输入blob进行reshape
-     input_blob->Reshape(net_b, net_c, net_h, net_w);
-
-     //resized的类型为cv::Mat；其中存储了经过了预处理的数据信息
-     // universe_fill_data()函数会将resized中的数据填充给网络的输入blob（这里是input_blob）
-     input_blob->universe_fill_data(resized);
-
-8) A_net推理
-
-  .. code-block:: c++
-
-     A_net_->Forward();
-     A_net_-> ExtractFeatures();
-
-9) 给B网络填充数据
-
-10) B_net推理
+         ret=$?;
+         if [ $ret -ne 0 ]; then echo "#ERROR: Gen Image List"; popd; return $ret; fi
+         echo "#INFO: Create Imageset Done"
+            popd;
+         return $ret;
+      }
 
 
-运用u_framework Python接口
-``````````````````````````
-
-a) LMDB API组成
-
-   - lmdb = ufw.io.LMDBDataset(path, queuesize=100, mapsize=20e6) # 建立一个LMDBDataset对象
-
-     ::
-
-        path: 建立LMDB的路径(会自建文件夹，并将数据内容存储在文件夹下的data.mdb)
-        queue_size:  缓存队列，指缓存图片数据的个数。默认为100，增加该数值会提高读写性能，但是对内存消耗较大
-        mapsize:  LMDB建立时开辟的内存空间，LMDBDataset会在内存映射不够的时候自动翻倍
+如何使用生成的lmdb在 :ref:`using-lmdb` 中描述，配合其中描述的前处理为量化期间的推理准备好数据。对于一般简单的情况，只需将量化输入图片
+进行解码和格式转换就可以了。而对于前处理不能精确表达的复杂处理，或者在级联网络中需要把中间结果作为下一级网络的输入进行训练的情况，
+也可以自己开发预处理脚本，直接生成lmdb，方法请参考 :ref:`u_framework`。
 
 
-   - put(images, labels=None, keys=None)  # 存储图片和标签信息
+.. _generate_fp32umodel:
 
-     ::
+生成fp32umodel
+--------------
 
-        images: 图片数据，接受numpay.array格式。需要使用CHW格式，如果不符合需要提前transpose一下。数据类型可以是float或是uint8。如果数据维度为3维，则认为是单张图片(batch=1)；如果是4维，认为是多组图片，会按照batch分别存储。
-        lables: 图片的lable，需要是int类型，如果没有label不填该值即可。如果设定该值，需要其长度与images的batch一致。
-        keys:   LMDB的键值，可以使用原始图片的文件名，但是需要注意LMDB数据会对存储的数据按键值进行排序，推荐使用唯一且递增的键值。如果不填该值，LMDB_Dataset会自动维护一个递增的键值。
+为了将第三方框架训练后的网络量化，需要先将它们转化为fp32umodel。本阶段会生成一个\*.fp32umodel文件以及一个\*.prototxt文件。
+prototxt文件的文件名一般是net_name_bmnetX_test_fp32.prototxt，其中X代表原始框架名的首字母，
+比如Tensorflow的网络转为umodel后prototxt文件名会是net_name_bmnett_test_fp32.prototxt，PyTorch转换的网络会是net_name_bmnetp_test_fp32.prototxt等。
+此阶段生成的fp32umodel文件是量化的输入， :ref:`using-lmdb` 中修改预处理就是针对此阶段生成的prototxt文件的修改。
 
-   - close()
+**注意** ：基于精度方面考虑输入Calibration-tools的fp32umodel需要保持Batchnorm层以及
+Scale层独立。有时候客户可能会利用第三方工具对网络图做一些等价转换，这个过程中请
+确保Batchnorm层以及Scale层不被提前融合到Convolution。
 
-     ::
-
-        将缓存取内容存储，并关闭数据集。如果不使用该方法，程序会在结束的时候自动执行该方法。
-        但是如果python解释器崩溃，则会导致缓存区数据丢失。
-
-b) LMDB API使用方式
-
-   - import ufw
-   - txn = ufw.io.LMDB_Dataset('to/your/path')
-   - txn.put(images)  # 放置在循环中
-   - 在pytorch和tensorflow中，images通常是xxx.Tensor，可以使用images.numpy()，将其转化为numpy.array格式
-   - tensorflow的tensor通常是NHWC模式，可以使用transpose([2, 0, 1])[三维数据]，或transpose([0, 3, 1, 2])[四维数据]
-   - txn.close()
-
-示例代码
+转换生成fp32umodel的工具为一系列名为ufw.tools.*_to_umodel的python脚本，存放于ufw包中，*号代表不同框架的缩写。可以通过以下命令查看使用帮助：
 
   .. code-block:: python
 
-     import ufw
-     import lmdb
-     import torch
+      python3 -m ufw.tools.cf_to_umodel --help  # Caffe模型转化fp32umodel工具
+      python3 -m ufw.tools.pt_to_umodel --help  # PyTorch模型转化fp32umodel工具
+      python3 -m ufw.tools.tf_to_umodel --help  # TensorFlow模型转化fp32umodel工具
+      python3 -m ufw.tools.dn_to_umodel --help  # Darknet模型转化fp32umodel工具
+      python3 -m ufw.tools.mx_to_umodel --help  # MxNet模型转化fp32umodel工具
+      python3 -m ufw.tools.on_to_umodel --help  # ONNX模型转化fp32umodel工具
 
-     images = torch.randn([3, 3,100,100])
+详细参数说明针对不同框架稍有区别，具体参考下文示例中各框架下的参数解释。
 
-     path = 'test__'
-     txn = ufw.io.LMDB_Dataset(path)
-
-     for i in range(1020):
-         txn.put(images.numpy())
-     txn.close()
-
-     ## test LMDB key information
-     def lmdbextractinfo(path):
-         with lmdb.open(path, readonly=True) as txn:
-             cursor = txn.begin().cursor()
-             for key, value in cursor:
-                 print(key)
-
-d) 注意事项
-
-   - 此功能不会检查给定路径下是否已有文件，如果之前存在LMDB文件，该文件会被覆盖。
-   - python解释器崩溃会导致数据丢失。
-   - 如果程序正常结束，LDMB_Dataset会自动将缓存区数据写盘。也可以使用close()安全关闭写盘。
-   - 使用重复的key会导致数据覆盖或污染，使用非递增的key会导致写入性能下降。
-   - 解析该LMDB的时候需要使用Data layer。
-   - 输入数据类型支持float、uint8。
+以下示例中模型生成命令已经保存为简单的python脚本，用户可以在这些脚本的基础上修改其中的少量参数完成自己的模型转换，也可以
+在命令行直接使用python3 -m ufw.tools.xx_to_umodel加参数进行转换。
 
 
+Caffe框架下的网络模型生成fp32umodel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+python脚本调用
+``````````````
+
+本例以附录2中附带的 :ref:`example_5` 来说明转化过程和执行过程。
+
+a) 参数修改
+
+   示例脚本存放于BmnnSDK发布目录的examples/calibration/caffemodel_to_fp32umodel_demo/
+   resnet50_to_umodel.py 中，对于用户网络，可以以此为基础，修改其中的-m -w -s 参数：
+
+  .. code-block:: python
+     :linenos:
+     :emphasize-lines: 4,5,6
+
+     import ufw.tools as tools
+
+     cf_resnet50 = [
+         '-m', './models/ResNet-50-test.prototxt',
+         '-w', './models/ResNet-50-model.caffemodel',
+         '-s', '(1,3,224,224)',
+         '-d', 'compilation',
+         '-n', 'resnet-50',
+         '--cmp'
+     ]
+
+     if __name__ == '__main__':
+         tools.cf_to_umodel(cf_resnet50)
+
+
+  ::
+
+     参数解释
+     -m    #指向*.prototxt文件的路径
+     -w    #指向*.caffemodel文件的路径
+     -s    #输入blob的维度，（N,C,H,W）
+     -d    #输出文件夹的名字
+     -n    #网络名字
+     --cmp #可选参数，指定是否测试模型转化的中间文件
+
+
+b) 运行命令：
+
+  ::
+
+     例如：python3 resnet50_to_umodel.py
+
+
+c) 输出：
+
+   若不指定-d参数，则在当前文件夹下，默认新生成compilation文件夹用来存放输出的\*.fp32umodel 与 \*_bmnetc_test_fp32.prototxt。
+
+Tensorflow框架下的网络模型生成fp32umodel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+python脚本调用
+``````````````
+a) 参数修改
+
+   示例可以参考 :ref:`example_6` 中的脚本，存放于BmnnSDK发布目录examples/calibration/tf_to_fp32umodel_demo/
+   resnet50_v2_to_umodel.py，修改其中的-m，-i，-s等 参数：
+
+   .. code-block:: python
+      :linenos:
+      :emphasize-lines: 4,5,7
+
+      import ufw.tools as tools
+
+      tf_resnet50 = [
+          '-m', './models/frozen_resnet_v2_50.pb',
+          '-i', 'input',
+          '-o', 'resnet_v2_50/predictions/Softmax',
+          '-s', '(1, 299, 299, 3)',
+          '-d', 'compilation',
+          '-n', 'resnet50_v2',
+          '-D', '../classify_demo/lmdb/imagenet_s/ilsvrc12_val_lmdb_with_preprocess',
+          '--cmp'
+      ]
+
+      if __name__ == '__main__':
+          tools.tf_to_umodel(tf_resnet50)
+
+
+   ::
+
+      参数解释
+      -m    #指向*.pb文件的路径
+      -i    #输入tensor的名称
+      -o    #输出tensor的名称
+      -s    #输入tensor的维度，（N,H,W,C）
+      -d    #输出文件夹的名字
+      -n    #网络的名字
+      -D    #lmdb数据集的位置，
+            #没有的话，可以暂时随意填个路径，然后在手动编辑prototxt文件的时候，根据实际的路径来添加
+      --cmp #可选参数，指定是否测试模型转化的中间文件
+
+b) 运行命令：
+
+  ::
+
+     例如：python3 resnet50_v2_to_umodel.py
+
+c) 输出：
+
+   若不指定-d参数，则在当前文件夹下，默认新生成compilation文件夹存放输出的\*.fp32umodel 与\*_bmnett_test_fp32.prototxt。
+
+
+.. _pytorch-to-umodel:
+
+Pytorch框架下的网络模型生成fp32umodel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+a) 参数修改
+
+   以BmnnSDK发布目录下examples/calibration/pt_to_fp32umodel_demo/mobilenet_v2_to_umodel.py为基础，修改其中的-m，-s等 参数。
+
+  .. code-block:: python
+     :linenos:
+     :emphasize-lines: 4,5
+
+     import ufw.tools as tools
+
+     pt_mobilenet = [
+         '-m', './models/mobilenet_v2.pt',
+         '-s', '(1,3,224,224)',
+         '-d', 'compilation',
+         '-D', '../classify_demo/lmdb/imagenet_s/ilsvrc12_val_lmdb_with_preprocess',
+         '--cmp'
+     ]
+
+     if __name__ == '__main__':
+         tools.pt_to_umodel(pt_mobilenet)
+
+
+  ::
+
+     参数解释
+     -m    #指向*.pb文件的路径
+     -s    #输入tensor的维度，（N,C,H,W）
+     -D    #lmdb数据集的位置，
+           #没有的话，可以暂时随意填个路径，然后在手动编辑prototxt文件的时候，根据实际的路径来添加
+     --cmp #可选参数，指定是否测试模型转化的中间文件
+
+
+b) 运行命令：
+
+  ::
+
+     例如：python3 mobilenet_v2_to_umodel.py
+
+c) 输出：
+
+   若不指定-d参数，则在当前文件夹下，默认新生成compilation文件夹存放输出的 \*.fp32umodel 与 \*_bmnetp_test_fp32.prototxt
+
+
+.. _mxnet-to-umodel:
+
+Mxnet框架下的网络模型生成fp32umodel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+a) 参数修改
+
+   以BmnnSDK发布目录下examples/calibration/mx_to_fp32umodel_demo/mobilenet0.25_to_umodel.py
+   为基础，修改其中的-m，-w，-s等 参数：
+
+
+   .. code-block:: python
+      :linenos:
+      :emphasize-lines: 4,5,6
+
+      import ufw.tools as tools
+
+      mx_mobilenet = [
+          '-m', './models/mobilenet0.25-symbol.json',
+          '-w', './models/mobilenet0.25-0000.params',
+          '-s', '(1,3,128,128)',
+          '-d', 'compilation',
+          '-D', '../classify_demo/lmdb/imagenet_s/ilsvrc12_val_lmdb_with_preprocess',
+          '--cmp'
+      ]
+
+      if __name__ == '__main__':
+          tools.mx_to_umodel(mx_mobilenet)
+
+
+   ::
+
+      参数解释
+      -m    #指向*.json文件的路径
+      -w    #指向*params文件的路径
+      -s    #输入tensor的维度，（N,C,H,W）
+      -D    #lmdb数据集的位置，
+            #没有的话，可以暂时随意填个路径，然后在手动编辑prototxt文件的时候，根据实际的路径来添加
+      --cmp #可选参数，指定是否测试模型转化的中间文件
+
+
+b) 运行命令：
+
+  ::
+
+     例如：python3 mobilenet0.25_to_umodel.py
+
+c) 输出：
+
+   若不指定-d参数，则在当前文件夹下，默认新生成compilation文件夹存放输出的 \*.fp32umodel 与 \*_bmnetm_test_fp32.prototxt。
+
+
+.. _darknet-to-umodel:
+
+Darknet框架下的网络模型生成fp32umodel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+a) 参数修改
+
+   以BmnnSDK发布目录下examples/calibration/dn_to_fp32umodel_demo/yolov3_to_umodel.py为
+   基础，修改其中的-m，-w，-s等 参数：
+
+
+   .. code-block:: python
+      :linenos:
+      :emphasize-lines: 4,5,6
+
+      import ufw.tools as tools
+
+      dn_darknet = [
+          '-m', 'yolov3/yolov3.cfg',
+          '-w', 'yolov3/yolov3.weights',
+          '-s', '[[1,3,416,416]]',
+          '-d', 'compilation'
+      ]
+
+      if __name__ == '__main__':
+          tools.dn_to_umodel(dn_darknet)
+
+
+   ::
+
+      参数解释
+      -m    #指向*.cfg文件的路径
+      -w    #指向*.weights文件的路径
+      -s    #输入tensor的维度，（N,C,H,W）
+      -d    #生成umodel的文件夹
+      -D    #lmdb数据集的位置，
+            #没有的话，可以暂时随意填个路径，然后在手动编辑prototxt文件的时候，根据实际的路径来添加
+
+
+b) 运行命令：
+
+  此示例程序发布时为了减少发布包体积，原始网络没有随SDK一块发布，要运行此示例需要先下载原始网络：
+
+  .. code-block:: bash
+
+     get_model.sh # download model
+     python3 yolov3_to_umodel.py
+
+c) 输出：
+
+   若不指定-d参数，则在当前文件夹下，默认新生成compilation文件夹存放输出的 \*.fp32umodel 与 \*_bmnetd_test_fp32.prototxt。
+
+
+.. _onnx-to-umodel:
+
+ONNX网络模型生成fp32umodel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+a) 参数修改
+
+   以BmnnSDK发布目录下examples/calibration/on_to_fp32umodel_demo/postnet_to_umodel.py为
+   基础，修改其中的-m，-i，-s等 参数：
+
+
+   .. code-block:: python
+      :linenos:
+      :emphasize-lines: 4,5,6
+
+      import ufw.tools as tools
+
+      on_postnet = [
+          '-m', './models/postnet.onnx',
+          '-s', '[(1, 80, 256)]',
+          '-i', '[mel_outputs]',
+          '-d', 'compilation',
+          '--cmp'
+      ]
+
+      if __name__ == '__main__':
+          tools.on_to_umodel(on_postnet)
+
+
+   ::
+
+      参数解释
+      -m    #指向*.onnx文件的路径
+      -s    #输入tensor的维度，（N,C,H,W）
+      -i    #输入tensor的名称
+      -o    #输出tensor的名称
+      -d    #生成umodel的文件夹
+      -D    #lmdb数据集的位置，
+            #没有的话，可以暂时随意填个路径，然后在手动编辑prototxt文件的时候，根据实际的路径来添加
+      --cmp #可选参数，指定是否测试模型转化的中间文件
+
+
+b) 运行命令：
+
+
+   .. code-block:: bash
+
+     python3 postnet_to_umodel.py
+
+c) 输出：
+
+   若不指定-d参数，则在当前文件夹下，默认新生成compilation文件夹存放输出的 \*.fp32umodel 与 \*_bmneto_test_fp32.prototxt。
+
+**此阶段的参数设置需要注意：**
+
+a)  如果指定了“-D (-dataset )”参数，那么需要保证
+    “-D”参数下的路径正确，同时指定的数据集兼容该网络，否则会有运行错误。
+- 若指定了“-D”参数，则按照章节 :ref:`using-lmdb` 方法修改prototxt。
+
+  - 使用data layer作为输入
+  - 正确设置数据预处理
+  - 正确设置lmdb的路径
+
+b) 在不能提供合法的数据源时，不应该使用“-D”参数（该参数是可选项，不指定会使用随
+   机数据测试网络转化的正确性，可以在转化后的网络中再手动修改数据来源）。
+
+c) 转化模型的时候可以指定参数“--cmp”，使用该参数会比较模型转化的中间格式与原始框
+   架下的模型计算结果是否一致，增加了模型转化的正确性验证。
+
+量化，生成int8umodel
+--------------------
+
+网络量化过程包含下面两个步骤：
+
+- 对输入浮点网络图进行优化。:ref:`optimize_nets`
+
+- 对浮点网络进行量化得到int8网络图及系数文件。:ref:`quantize_nets`
+
+量化需要用到 :ref:`prepare-lmdb` 中产生的lmdb数据集，而正确使用数据集尤为重要，所以先说明如何使用数据集。
 
 .. _using-lmdb:
 
 使用lmdb数据集
 ~~~~~~~~~~~~~~
 
-为了使用刚生成的lmdb数据集，需要对网络的*.prototxt文件作以下3方面的修改：
+对于post-training量化方法，通过将训练后的模型进行一定次数的推理，来统计每层的输入输出数据范围，从而确定量化参数。
+为了使统计尽可能准确， **推理时候必须保证输入的数据为实际训练/验证时候的有效数据，前处理也保证和训练时候的一样** 。
+
+因此Uframework中提供了简单的前处理接口可以对生成的lmdb数据进行前处理以对齐训练过程的预处理。通过修改产生fp32umodel时候生成的*_test_fp32.prototxt文件来完成预处理配置，
+可参考 :ref:`generate_fp32umodel`。
+
+一般可以做以下3方面的修改：
 
 - 使用Data layer作为网络的输入。
 - 使Data layer的参数data_param指向生成的lmdb数据集的位置。
 - 修改Data layer的transform_param参数以对应网络对图片的预处理。
 
+data_layer的典型结构如下例所示：
+
+.. _data_layer_example:
+
+  .. code-block:: c++
+
+      layer {
+         name: "data"
+         type: "Data"
+         top: "data"
+         top: "label"
+         include {
+            phase: TEST
+         }
+         transform_param {
+            transform_op {
+               op: RESIZE
+               resize_h: 331
+               resize_w: 331
+            }
+            transform_op {
+               op: STAND
+               mean_value: 128
+               mean_value: 128
+               mean_value: 128
+               scale: 0.0078125
+            }
+         }
+         data_param {
+            source: "/data/imagenet/ilsvrc12_val_lmdb"
+            batch_size: 1
+            backend: LMDB
+         }
+      }
+
 修改data_param指向生成的lmdb数据集
 ``````````````````````````````````
+
+.. _data_source_set:
 
 .. figure:: ../_static/ch4_011.png
    :height: 4.02083in
@@ -282,11 +570,45 @@ d) 注意事项
 
 数据预处理
 ``````````
-在量化网络前，需要修改网络的prototxt文件，在datalayer（或者AnnotatedData layer）添加其数据预处理的参数，以保证送给net的数据与原始框架的一致。
+在量化网络前，需要修改网络的*_test_fp32.prototxt文件，在datalayer（或者AnnotatedData layer）
+添加其数据预处理的参数，以保证送给网络的数据与网络在原始框架中训练时的预处理一致。
+
+Calibration-tools量化工具支持两种数据预处理表示方式：
+
+   1. Caffe自带的TransformationParameter参数表示方法。Caffe自带的表示方法各个参数的执行顺序相对固定（如图 :ref:`ch4-004` 右半部所示），
+   但很难完善表达Tensorflow、Pytorch等基于Python的框架里面灵活多变的预处理方式，仅适用于Caffe模型的默认数据预处理方式。使用此方式，前处理操作和参数
+   直接以transform_param的参数的形式定义。
+
+   2. 比特大陆自定义的TransformOp数组表示方法，比特大陆定义了transform_op结构，将需要进行的预处理分解为不同的transform_op，
+   按照顺序列在transform_param中，程序会按照顺序分别执行各项计算，各个op的定义可以参考 :ref:`transform_op`。
+
+**注意** ：在修改prototxt文件添加数据预处理时，使用Caffe方式定义预处理参数与使用transform_op定义预处理只能二选一，请优先使用比特大陆自定义的表示方式。
+
+使用两种预处理的表示方式如 :ref:`ch4-003` 所示，左边是使用transform_op定义预处理的例子，右边是使用Caffe的transform_param定义
+预处理参数的例子。
+
+.. _ch4-003:
+
+.. figure:: ../_static/ch4_004.png
+   :width: 5.76806in
+   :height: 3.00403in
+   :align: center
+
+   作为transform_op参数与作为transform_param参数对比
 
 
-数据预处理参数
-''''''''''''''
+.. _ch4-004:
+
+.. figure:: ../_static/ch4_003.png
+   :width: 5.76806in
+   :height: 4.67015in
+   :align: center
+
+   作为transform_param参数定义预处理的处理流程
+
+
+Caffe方式预处理定义
+""""""""""""""""""""""""
 
 数据预处理通过transform_param参数来定义，其各参数的含义如下：
 
@@ -336,7 +658,7 @@ a) TransformationParameter定义
                   }
 
 
-b) ResizeParameter定义
+a-1) ResizeParameter定义
 
   .. code-block:: c++
 
@@ -390,11 +712,11 @@ Pad_mode： 表示pad时的模式，含义如下
      ------------------   ---------------
      CONSTANT = 1         cv::BORDER_CONSTANT
      MIRRORED = 2         cv::BORDER_REFLECT101
-     REPEAT_NEAREST = 3	cv::BORDER_REPLICATE
+     REPEAT_NEAREST = 3	  cv::BORDER_REPLICATE
      ==================   ===============
 
 
-Resize_mode：表示resieze时候模式，含义如下
+Resize_mode：表示resize时候模式，含义如下
 
 +---------------------------+----------------------------------------------------------------------------------------------------+
 |Resize_mode 参数           |与opencv对应关系                                                                                    |
@@ -437,15 +759,20 @@ Interp_mode：表示插值时候的模式，含义如下：
      LINEAR = 1         cv::INTER_LINEAR
      AREA = 2           cv::INTER_AREA
      NEAREST = 3        cv::INTER_NEAREST
-     CUBIC = 4	      cv::INTER_CUBIC
+     CUBIC = 4	         cv::INTER_CUBIC
      LANCZOS4 = 5	      cv::INTER_LANCZOS4
      =================  ==================
 
-C) TransformOp
+
+.. _transform_op:
+
+比特大陆自定义预处理方式
+"""""""""""""""""""""""""
+
+TransformOp定义
 
   .. code-block:: c++
 
-     //for tensorflow
      message TransformOp {
      enum Op {
                   RESIZE = 0;
@@ -479,39 +806,14 @@ C) TransformOp
 当lmdb内的数据是bgr格式的，但是net需要输入为rgb格式时，将bgr2rgb设置为ture。
 
 
-数据预处理参数的作用流程
-''''''''''''''''''''''''
-
-基于以上的TransformationParameter的参数定义，其作用的流程如图 :ref:`ch4-003` 所示。其特点如下：
-
-- 在编译prototxt文件时，transform_op中定义的参数与transform_op外定义的参数只能二选一，如图 :ref:`ch4-004` 所示，左边是包括transform_op参数的例子，右边是不包括transform_op参数的例子。
-- transform_op中定义的参数按其在prototxt定义的顺序来执行，适用于灵活的数据预处理组合。
-- transform_op外定义的参数其执行顺序是固定的，如图 :ref:`ch4-003` 右半部所示。
-
-.. _ch4-003:
-
-.. figure:: ../_static/ch4_003.png
-   :width: 5.76806in
-   :height: 4.67015in
-   :align: center
-
-   输入预处理的流程
-
-.. _ch4-004:
-
-.. figure:: ../_static/ch4_004.png
-   :width: 5.76806in
-   :height: 3.00403in
-   :align: center
-
-   是否包含transform_op参数对比
-
 对于带Annotated信息的lmdb的处理
 ```````````````````````````````
 
 对于检测网络来说，其label不仅仅是个数字，它包括类别，检测框的位置等复杂信息。对于这种情况，分两种情况处理：
 
-- 如果lmdb数据尚未生成，请参照章节 :ref:`convert-lmdb` 、:ref:`using-lmdb` 描述的方法，生成lmdb数据集。生成lmdb时，其label随机填充<200的数字即可；读取lmdb时，用“Data layer”来读取该数据lmdb数据集（在量化网络时，那些anntoated信息（包括类别，检测框）不是必须的信息）如图 :ref:`ch4-005` 是fddb数据集基于章节 :ref:`convert-lmdb` 、 :ref:`using-lmdb` 描述的方法生成lmd后，用data layer读取的例子。
+- 如果lmdb数据尚未生成，请参照章节 :ref:`prepare-lmdb` 、:ref:`using-lmdb` 描述的方法，生成lmdb数据集。
+生成lmdb时，其label随机填充<200的数字即可；读取lmdb时，用“Data layer”来读取该数据lmdb数据集（在量化网络时，那些anntoated信息（包括类别，检测框）不是必须的信息）
+如图 :ref:`ch4-005` 是fddb数据集基于章节 :ref:`prepare-lmdb` 、 :ref:`using-lmdb` 描述的方法生成lmd后，用data layer读取的例子。
 
 .. _ch4-005:
 
@@ -533,330 +835,7 @@ C) TransformOp
 
    使用AnnotatedData Layer来读取该lmdb数据集
 
-生成fp32umodel
---------------
-
-将第三方框架生成的模型文件转换成umodel文件，本阶段生成一个\*.fp32umodel文件以及
-一个\*.prototxt文件。
-
-**注意** ：基于精度方面考虑输入Calibration-tools的fp32umodel需要保持Batchnorm层以及
-Scale层独立。有时候客户可能会利用第三方工具对网络图做一些等价转换，这个过程中请
-确保Batchnorm层以及Scale层不被提前融合到Convolution。
-
-在使用以下转化工具时，需要注意：
-
-a)  如果指定了“-D (-dataset )”参数，那么需要保证
-    “-D”参数下的路径正确，同时指定的数据集兼容该网络，否则会有运行错误。
-
-b) 在不能提供合法的数据源时，不应该使用“-D”参数（该参数是可选项，不指定会使用随
-   机数据测试网络转化的正确性，可以在转化后的网络中再手动修改数据来源）。
-
-c) 转化模型的时候可以指定参数“--cmp”，使用该参数会比较模型转化的中间格式与原始框
-   架下的模型计算结果是否一致，增加了模型转化的正确性验证。
-
-
-caffe框架下的网络模型生成fp32umodel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-本步骤分2步来完成：
-
-- 按照章节 :ref:`using-lmdb` 方法修改prototxt。
-
-  - 使用data layer作为输入
-  - 正确设置数据预处理
-  - 正确设置lmdb的路径
-
-- 用 \*.caffemodel，\*.prototxt文件作为输入，调用python脚本，完成转换。
-
-python脚本调用
-``````````````
-
-a) 参数修改
-
-   以/examples/calibration/examples/caffemodel_to_fp32umodel_demo/
-   resnet50_to_umodel.py 为基础，修改其中的-m –w -s 参数：
-
-  .. code-block:: python
-     :linenos:
-     :emphasize-lines: 4,5,6
-
-     import ufw.tools as tools
-
-     cf_resnet50 = [
-         '-m', './models/ResNet-50-test.prototxt',
-         '-w', './models/ResNet-50-model.caffemodel',
-         '-s', '(1,3,224,224)',
-         '-d', 'compilation',
-         '--cmp'
-     ]
-
-     if __name__ == '__main__':
-         tools.cf_to_umodel(cf_resnet50)
-
-
-  ::
-
-     参数解释
-     -m    #指向*.prototxt文件的路径
-     -w    #指向*.caffemodel文件的路径
-     -s    #输入blob的维度，（N,C,H,W）
-     -d    #输出文件夹的名字
-     --cmp #可选参数，指定是否测试模型转化的中间文件
-
-
-b) 运行命令：
-
-  ::
-
-     例如：python3 resnet50_to_umodel.py
-
-
-c) 输出：
-
-   在当前文件夹下，新生成compilation文件夹，存放新生成的\*.fp32umodel 与 \*.prototxt。
-
-tensorflow框架下的网络模型生成fp32umodel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-本步骤分2步来完成：
-
-- 用\*.pb文件作为输入，调用python脚本，完成转换。
-
-- 按照章节 :ref:`using-lmdb` 方法修改prototxt。
-
-  - 使用data layer作为输入
-  - 正确设置数据预处理
-  - 正确设置lmdb的路径
-
-
-python脚本调用
-``````````````
-a) 参数修改
-
-   以/examples/calibration/examples/ tf_to_fp32umodel_demo/
-   resnet50_v2_to_umodel.py为基础，修改其中的–m，-i，-s等 参数：
-
-   .. code-block:: python
-      :linenos:
-      :emphasize-lines: 4,5,7
-
-      import ufw.tools as tools
-
-      tf_resnet50 = [
-          '-m', './models/frozen_resnet_v2_50.pb',
-          '-i', 'input',
-          '-o', 'resnet_v2_50/predictions/Softmax',
-          '-s', '(1, 299, 299, 3)',
-          '-d', 'compilation',
-          '-n', 'resnet50_v2',
-          '-p', 'INCEPTION',
-          '-D', '../classify_demo/lmdb/imagenet_s/ilsvrc12_val_lmdb',
-          '-a',
-          '--cmp'
-      ]
-
-      if __name__ == '__main__':
-          tools.tf_to_umodel(tf_resnet50)
-
-
-   ::
-
-      参数解释
-      -m    #指向*.pb文件的路径
-      -i    #输入tensor的名称
-      -o    #输出tensor的名称
-      -s    #输入tensor的维度，（N,H,W,C）
-      -d    #输出文件夹的名字
-      -n    #网络的名字
-      -p    #数据预处理类型，预先定义了VGG，INCEPTION，SSD_V，SSD_I几种。
-            #没有合适的随意选一个，然后在手动编辑prototxt文件的时候，根据实际的预处理来添加
-      -D    #lmdb数据集的位置，
-            #没有的话，可以暂时随意填个路径，然后在手动编辑prototxt文件的时候，根据实际的路径来添加
-      -a    #加上该参数，会在生成的模型中添加top1，top5两个accuracy层
-      --cmp #可选参数，指定是否测试模型转化的中间文件
-
-b) 运行命令：
-
-  ::
-
-     例如：python3 resnet50_v2_to_umodel.py
-
-c) 输出：
-
-   在当前文件夹下，新生成compilation文件夹，存放新生成的\*.fp32umodel 与\*.prototxt。
-
-
-.. _pytorch-to-umodel:
-
-pytorch框架下的网络模型生成fp32umodel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-a) 参数修改
-
-   以/examples/calibration/examples/pt_to_fp32umodel_demo/ mobilenet_v2_to_umodel.py为基础，修改其中的–m，-s等 参数。
-
-  .. code-block:: python
-     :linenos:
-     :emphasize-lines: 4,5
-
-     import ufw.tools as tools
-
-     pt_mobilenet = [
-         '-m', './models/mobilenet_v2.pt',
-         '-s', '(1,3,224,224)',
-         '-d', 'compilation',
-         '-p', 'INCEPTION',
-         '-D', '../classify_demo/lmdb/imagenet_s/ilsvrc12_val_lmdb',
-         '-a',
-         '--cmp'
-     ]
-
-     if __name__ == '__main__':
-         tools.pt_to_umodel(pt_mobilenet)
-
-
-  ::
-
-     参数解释
-     -m    #指向*.pb文件的路径
-     -s    #输入tensor的维度，（N,C,H,W）
-     -p    #数据预处理类型，预先定义了VGG，INCEPTION，SSD_V，SSD_I几种。
-           #没有合适的随意选一个，然后在手动编辑prototxt文件的时候，根据实际的预处理来添加
-     -D    #lmdb数据集的位置，
-           #没有的话，可以暂时随意填个路径，然后在手动编辑prototxt文件的时候，根据实际的路径来添加
-     -a    #加上该参数，会在生成的模型中添加top1，top5两个accuracy层
-     --cmp #可选参数，指定是否测试模型转化的中间文件
-
-
-b) 运行命令：
-
-  ::
-
-     例如：python3 mobilenet_v2_to_umodel.py
-
-c) 输出：
-
-   在当前文件夹下，新生成compilation文件夹，存放新生成的 \*.fp32umodel 与 \*.prototxt
-
-
-.. _mxnet-to-umodel:
-
-mxnet框架下的网络模型生成fp32umodel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-a) 参数修改
-
-   以
-   /examples/calibration/examples/mx_to_fp32umodel_demo/mobilenet0.25_to_umodel.py
-   为基础，修改其中的–m，-w，-s等 参数：
-
-
-   .. code-block:: python
-      :linenos:
-      :emphasize-lines: 4,5,6
-
-      import ufw.tools as tools
-
-      mx_mobilenet = [
-          '-m', './models/mobilenet0.25-symbol.json',
-          '-w', './models/mobilenet0.25-0000.params',
-          '-s', '(1,3,128,128)',
-          '-d', 'compilation',
-          '-p', 'INCEPTION',
-          '-D', '../classify_demo/lmdb/imagenet_s/ilsvrc12_val_lmdb',
-          '-a',
-          '--cmp'
-      ]
-
-      if __name__ == '__main__':
-          tools.mx_to_umodel(mx_mobilenet)
-
-
-   ::
-
-      参数解释
-      -m    #指向*.json文件的路径
-      -w    #指向*params文件的路径
-      -s    #输入tensor的维度，（N,C,H,W）
-      -p    #数据预处理类型，预先定义了VGG，INCEPTION，SSD_V，SSD_I几种。
-            #没有合适的随意选一个，然后在手动编辑prototxt文件的时候，根据实际的预处理来添加
-      -D    #lmdb数据集的位置，
-            #没有的话，可以暂时随意填个路径，然后在手动编辑prototxt文件的时候，根据实际的路径来添加
-      -a    #加上该参数，会在生成的模型中添加top1，top5两个accuracy层
-      --cmp #可选参数，指定是否测试模型转化的中间文件
-
-
-b) 运行命令：
-
-  ::
-
-     例如：python3 mobilenet0.25_to_umodel.py
-
-c) 输出：
-
-   在当前文件夹下，新生成compilation文件夹，存放新生成的 \*.fp32umodel 与 \*.prototxt。
-
-
-.. _darknet-to-umodel:
-
-darknet框架下的网络模型生成fp32umodel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-a) 参数修改
-
-   以/examples/calibration/examples/dn_to_fp32umodel_demo/yolov3_to_umodel.py为
-   基础，修改其中的–m，-w，-s等 参数：
-
-
-   .. code-block:: python
-      :linenos:
-      :emphasize-lines: 4,5,6
-
-      import ufw.tools as tools
-
-      dn_darknet = [
-          '-m', 'yolov3/yolov3.cfg',
-          '-w', 'yolov3/yolov3.weights',
-          '-s', '[[1,3,416,416]]',
-          '-d', 'compilation',
-          '-cmp'
-      ]
-
-      if __name__ == '__main__':
-          tools.dn_to_umodel(dn_darknet)
-
-
-   ::
-
-      参数解释
-      -m    #指向*.cfg文件的路径
-      -w    #指向*.weights文件的路径
-      -s    #输入tensor的维度，（N,C,H,W）
-      -d    #生成umodel的文件夹
-      -D    #lmdb数据集的位置，
-            #没有的话，可以暂时随意填个路径，然后在手动编辑prototxt文件的时候，根据实际的路径来添加
-      --cmp #可选参数，指定是否测试模型转化的中间文件
-
-
-b) 运行命令：
-
-  .. code-block:: bash
-
-     get_model.sh # download model
-     python3 yolov3_to_umodel.py
-
-
-c) 输出：
-
-   在当前文件夹下，新生成compilation文件夹，存放新生成的 \*.fp32umodel 与 \*.prototxt。
-
-
-量化，生成int8umodel
---------------------
-
-网络量化过程包含下面两个步骤：
-
-- 对输入浮点网络图进行优化。
-
-- 对浮点网络进行量化得到int8网络图及系数文件。
+.. _optimize_nets:
 
 优化网络
 ~~~~~~~~~
@@ -883,9 +862,10 @@ Quantization-tools进行网络图优化的输入参数包括3部分：
 
 - graph_transform： 固定参数
 
-- -model= PATH_TO/\*.prototxt：描述网络结构的文件，该prototxt文件的datalayer指向准备好的数据集，如图 4所示。
+- -model= PATH_TO/\*.prototxt：描述网络结构的文件，该prototxt文件的datalayer指向准备好的数据集，如 :ref:`data_source_set` 所示。
 
 - -weights=PATH_TO/\*.fp32umodel：保存网络系数的文件。
+这两个文件由 :ref:`generate_fp32umodel` 章节生成。
 
 Quantization-tools进行网络图优化的输出包括2部分：
 
@@ -893,10 +873,12 @@ Quantization-tools进行网络图优化的输出包括2部分：
 - PATH_TO/\*.fp32umodel_optimized
 
 为了和原始网络模型做区分，新生成的网络模型存储的时候以“optimized”为后缀。以上两
-个个文件存放在与通过参数“-weights=PATH_TO/\*.fp32umodel”指定的文件相同的路径下。
+个文件存放在与通过参数“-weights=PATH_TO/\*.fp32umodel”指定的文件相同的路径下。
 
 graph_transform功能单独列出来是因为在网络量化调优的时候需要对网络进行多次量化，这
 时候不需要多次执行网络图优化。可以在网络量化之前先单独用此命令对网络进行处理。
+
+.. _quantize_nets:
 
 量化网络
 ~~~~~~~~~
@@ -908,13 +890,12 @@ graph_transform功能单独列出来是因为在网络量化调优的时候需�
 
      $ cd <release dir>
      $ calibration_use_pb  \
-                  graph_transform \                   #固定参数
+                  quantize \                          #固定参数
                   -model= PATH_TO/*.prototxt \        #描述网络结构的文件
                   -weights=PATH_TO/*.fp32umodel       #网络系数文件
                   -iterations=200 \                   #迭代次数
                   -winograd=false   \                 #可选参数
                   -graph_transform=false \            #可选参数
-                  -save_model=true \                  #可选参数
                   -save_test_proto=false              #可选参数
 
 这里给出了量化网络用到的所有必要参数及部分最常用的可选参数，更多网络量化相关的参
@@ -926,12 +907,14 @@ graph_transform功能单独列出来是因为在网络量化调优的时候需�
 
 Quantization-tools进行网络量化的常用输入参数包括6部分：
 
-- graph_transform： 固定参数
+- quantize： 固定参数
 
 - -model= PATH_TO/\*.prototxt：描述网络结构的文件，该prototxt文件的datalayer指向
-  准备好的数据集，如图 4所示
+  准备好的数据集，如图 4.5所示
 
 - -weights=PATH_TO/\*.fp32umodel：保存网络系数的文件，
+
+这两个文件由 :ref:`generate_fp32umodel` 章节生成。
 
 - -iteration=200：该参数描述了在定点化的时候需要统计多少张图片的信息，默认200
 
@@ -940,53 +923,37 @@ Quantization-tools进行网络量化的常用输入参数包括6部分：
 - -graph_transform:可选参数，开启网络图优化功能，本参数相当于在量化前先执行上面的graph_transform
   命令，默认值为False
 
-- -save_model:可选参数，存储量化后的系数到int8umodel文件，默认值为True
-
 - -save_test_proto:可选参数，存储测试用的prototxt文件，默认值False
 
 
 Quantization-tools的输出包括5部分：
 
 - \*.int8umodel:  即量化生成的int8格式的网络系数文件
-- \*_test_ fp32_unique_top.prototxt：
-- \*_test_ int8_unique_top.prototxt：
+- \*_test_fp32_unique_top.prototxt：
+- \*_test_int8_unique_top.prototxt：
   分别为fp32, int8格式的网络结构文件， 该文件包括datalayer
-  与原始prototxt文件的差别在于，各layer的输出blob是唯一的，不存在in-place的情况
-- \*_ deploy_fp32_unique_top.prototxt：
-- \*_ deploy_int8_unique_top.prototxt：分别为fp32，int8格式的网络结构文件,该文件不包括datalayer
+  与原始prototxt文件的差别在于，各layer的输出blob是唯一的，不存在in-place的情况，当-save_test_proto为true时会生成这两个文件。
+- \*_deploy_fp32_unique_top.prototxt：
+- \*_deploy_int8_unique_top.prototxt：分别为fp32，int8格式的网络结构文件,该文件不包括datalayer
 
 以上几个文件存放位置与通过参数“-weights=PATH_TO/\*.fp32umodel”指定的文件位置相同。
+
+级联网络量化
+~~~~~~~~~~~~~
+
+
+级联网络的量化需要对每个网络分别进行量化，对每个网络分别准备LMDB和量化调优。
 
 
 精度测试（optional）
 --------------------
-精度测试是一个可选的操作步骤，用以验证经过int8量化后，网络的精度情况。该步骤可以安排在章节4.5描述的部署之前
+精度测试是一个可选的操作步骤，用以验证经过int8量化后，网络的精度情况。该步骤可以安排在 :ref:`net_deploy` 描述的网络部署之前，
+并配合 :ref:`quantize_nets` 反复进行，以达到预期的精度。
 
-量化误差定性分析
-~~~~~~~~~~~~~~~~
+根据不同的网络类型，精度测试可能是不同的，精度测试常常意味着要进行完整的前处理和后处理以及精度计算程序开发。Calibration-tools
+对外提供了Uframework的应用接口，可以对umodel进行float32或者int8推理，从而计算网络推理精度。
 
-章节 :ref:`view-demo` 作为示例程序，描述了如何使用calibration可视化分析工具查看网络量化误差。
-
-  .. code-block:: python
-
-     import analysis
-     args_ =  [   '-fm', 'path/to/fp32/prototxt',   # float网络模型
-                  '-fw',  'path/to/fp32umodel',     # float网络参数
-                  '-im', 'path/to/int8/prototxt',   # int8网络模型
-                  '-iw',  'path/to/int8umodel']     # int8网络参数
-     test_n = analysis.calibration_visual(args_)
-     test_n.show_widgets()
-
-
-该工具使用MAPE（Mean Abusolute Percentage Error）作为误差评价标准，其计算定义为：
-
-  .. math::
-
-     \text{MAPE} = \frac{1}{n}\left( \sum_{i=1}^n \frac{|Actual_i - Forecast_i|}{|Actual_i|} \right)*100
-
-
-由于int8网络部分层进行了合并计算，例如会将relu与batchnorm合并，所以此时bathcnorm层的MAPE值无效。
-
+对于传统的分类网络和检测网络，Calibration-tools提供了两个示例，以演示如何进行精度验证。
 
 分类网络的精度测试
 ~~~~~~~~~~~~~~~~~~
@@ -1000,7 +967,7 @@ Quantization-tools的输出包括5部分：
 
      $ cd <release dir>
      $ ufw test_fp32 \                                         #固定参数
-            -model=PATH_TO/\*_test_fp32_unique_top.prototxt \  #章节4.3.3 输出的文件
+            -model=PATH_TO/\*_test_fp32_unique_top.prototxt \  #章节量化网络中 输出的文件
             -weights= PATH_TO/\*.fp32umodel \                  #fp32格式的umodel
             -iterations=200                                    #测试的图片个数
 
@@ -1011,8 +978,8 @@ Quantization-tools的输出包括5部分：
 
      $ cd <release dir>
      $ ufw test_int8 \                                         #固定参数
-            -model=PATH_TO/\*test_int8_unique_top.prototxt \   #章节4.3.3 输出的文件
-            -weights= PATH_TO/\*.int8umodel \                  #章节4.3.3 输出的文件，量化后int8umodel
+            -model=PATH_TO/\*test_int8_unique_top.prototxt \   #章节量化网络中输出的文件
+            -weights= PATH_TO/\*.int8umodel \                  #章节量化网络中输出的文件，量化后int8umodel
             -iterations=200                                    #测试的图片个数
 
 检测网络的精度测试
@@ -1024,7 +991,7 @@ Quantization-tools的输出包括5部分：
 
 c接口形式
 `````````
-章节 :ref:`face-demo` 作为示例程序，描述了C接口的调用方法。 本节是对章节 :ref:`face-demo` 抽象总结。
+章节 :ref:`face-demo` 作为示例程序，描述了C接口的调用方法。 本节是对章节 :ref:`face-demo` 的抽象总结。
 
 一个c接口的精度测试程序的框架如图 :ref:`ch4-009`
 
@@ -1060,24 +1027,24 @@ c接口形式
 
   .. code-block:: c++
 
-      String  model_file = **.fp32umodel；
-      String  proto_file= **_ deploy_fp32_unique_top.prototxt
+      String  model_file = "**.fp32umodel";
+      String  proto_file= "**_deploy_fp32_unique_top.prototxt";
 
 
 - 运行int8网络时候，用
 
   .. code-block:: c++
 
-     String model_file = **.int8umodel；
-     String  proto_file= **_ deploy_int8_unique_top.prototxt
+     String  model_file = "**.int8umodel";
+     String  proto_file= "**_deploy_int8_unique_top.prototxt";
 
 
 4) 建立网络
 
   .. code-block:: c++
 
-     net_= new Net<float>(proto_file, TEST);   //proto_file描述网络结构的文件
-     net_-> CopyTrainedLayersFrom(model_file); //model_file描述网络系数的文件
+     net_= new Net<float>(proto_file, model_file, TEST);   //proto_file描述网络结构的文件
+                                                           //model_file描述网络系数的文件
 
 
 5) 读入图片，预处理
@@ -1108,7 +1075,7 @@ c接口形式
      net_->Forward();
 
 
-8) 	搜集网络推理结果
+8) 搜集网络推理结果
 
 - 通过这种方法得到的是网络输出数据的指针，例如const float* m3_scores
 
@@ -1223,6 +1190,76 @@ python接口形式
    该步骤与待测的检测网络本身特性有关。采用原始网络的处理代码即可。
 
 
+量化误差定性分析
+~~~~~~~~~~~~~~~~
+
+章节 :ref:`view-demo` 作为示例程序，描述了如何使用calibration可视化分析工具查看网络量化误差，此工具通过运行fp32和int8网络，
+并对其每层的输出进行比较，以图形化界面形式直观显示每层数据的量化损失。
+
+  .. code-block:: python
+
+     import analysis
+     args_ =  [   '-fm', 'path/to/fp32/*_test_fp32_unique_top.prototxt',   # float网络模型
+                  '-fw',  'path/to/*.fp32umodel',                          # float网络参数
+                  '-im', 'path/to/int8/*_test_int8_unique_top.prototxt',   # int8网络模型
+                  '-iw',  'path/to/*.int8umodel',                          # int8网络参数
+                  '-show_difference', '1',                                 # 显示每层fp32网络与int8网络的差异
+                  '-max_sample', '999']                                    # 每层数据抽样显示的点数，
+                                                                             大一些可以更精确的显示数据
+                                                                             小一些可以提高速度
+     test_n = analysis.calibration_visual(args_)
+     test_n.run()
+     test_n.show_widgets()
+
+
+该工具使用MAPE（Mean Abusolute Percentage Error）和COS （Cosine Similarity）作为误差评价标准，其计算定义为：
+
+  .. math::
+
+     \text{MAPE} = \frac{1}{n}\left( \sum_{i=1}^n \frac{|Actual_i - Forecast_i|}{|Actual_i|} \right)*100
+
+  .. math::
+
+     \text{COS} = 0.5+0.5*\frac{\sum_{i=1}^n{A_i*B_i}}{\sqrt{\sum_{i=1}^n{A_i^2}}\sqrt{\sum_{i=1}^n{B_i^2}}}
+
+
+由于int8网络部分层进行了合并计算，例如会将relu与batchnorm合并，所以此时bathcnorm层的MAPE和COS值无效。
+
+此量化工具以jupyter-notebook形式提供，由于量化工具在Docker中运行，使用此量化工具时候可能需要在Docker启动脚本中增加端口
+映射选项，如 :ref:`port_mapping` 所示，在SDK的启动脚本docker_run_bmnnsdk.sh中增加端口映射选项-p，docker内端口8000被
+映射为主机端口8000，修改启动可视化工具的脚本jupyter_server.sh中的端口指定为8000,则在与主机同网段或者可以访问的网络环境中，替换启动
+jupyter-server的localhost地址为启动此Docker的主机地址，就可以访问可视化工具， 如 :ref:`jupyter_address` 所示：
+
+.. _port_mapping:
+
+.. figure:: ../_static/port_mapping.png
+   :width: 4.46808in
+   :height: 5.06999in
+   :align: center
+
+   Docker端口映射启动
+
+修改jupyter_servers.sh如下：
+
+  .. code-block:: shell
+
+      /usr/local/bin/jupyter nbextension enable --py widgetsnbextension
+      /usr/local/bin/jupyter-notebook --port=8000 --no-browser --ip=0.0.0.0 --allow-root  # 修改端口为8000
+
+
+jupyter_server.sh启动时候提示的地址和token信息如下图 :ref:`jupyter_address` 所示，在浏览器中打开时需将地址替换为Docker Container所在的主机地址：
+
+.. _jupyter_address:
+
+.. figure:: ../_static/jupyter_start.png
+   :width: 5.23460in
+   :height: 1.75640in
+   :align: center
+
+   jupyter_server.sh启动
+
+.. _net_deploy:
+
 部署
 ----
 部署指的是用int8umodel，生成SOPHON系列AI平台指令集。网络部署时，涉及到以下两个文
@@ -1231,27 +1268,7 @@ python接口形式
   ::
 
      **.int8umodel,
-     **_deploy_ int8_unique_top.prototxt
+     **_deploy_int8_unique_top.prototxt
 
 
-以上两个文件会送给bmnetu，最终生成可在SOPHON系列AI运算平台上运行的bmodel，具体步骤请参考文档bmnetu的相关文档。
-
-
-级联网络的量化步骤
-------------------
-
-- 生成lmdb
-
-  用章节 :ref:`u_framework` 所述方法，搭建推理环境，调用u_framework接口，一次完成所有网络的lmdb存储。
-
-- 量化，生成int8umodel
-
-  每个网络单独量化，用章节“4.3量化，生成int8umodel”所述方法生成各自的int8umodel。
-
-- 精度测试
-
-  与单个网络的精度测试方法相同。
-
-- 部署
-
-  每个网络单独生成bmodel
+以上两个文件会送给bmnetu，最终生成可在SOPHON系列AI运算平台上运行的bmodel，具体步骤请参考文档NNToolChain.pdf中bmnetu相关的部分及BmnnSDK下的相关example。
