@@ -1,0 +1,82 @@
+name: Build PDF and HTML
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  publish_document:
+    name: Create default build environment
+    runs-on: ubuntu-latest
+    steps:
+    - name: get build server
+      run: |
+        docker pull mattlu/sphinx-doc-export:latest
+    - name: Clone repo
+      uses: actions/checkout@v2
+
+    - name: export pdf
+      run: >
+        docker run --rm -v ${PWD}:/docs mattlu/sphinx-doc-export make pdf
+
+    - name: export html
+      run: >
+        docker run --rm -v ${PWD}:/docs mattlu/sphinx-doc-export make html
+
+    - name: Archive html
+      run: >
+        7z a calibration-doc-html.zip
+        ./build/html/*
+
+    - name: Compute release info
+      run: |
+        echo "RELEASE_COMMIT_SHORT=$(printf '%.12s' ${{ github.sha }})" >> $GITHUB_ENV
+        echo "RELEASE_DATE=$(date -u +%Y%m%d)" >> $GITHUB_ENV
+
+    - name: Use date as the tag name
+      run: >
+        echo "TAG_NAME=snapshot_${{ env.RELEASE_DATE }}" >> $GITHUB_ENV
+
+    - name: Use date and release commit as release name
+      run: >
+        echo "RELEASE_NAME=${{ env.RELEASE_DATE }} @${{ env.RELEASE_COMMIT_SHORT }}" >> $GITHUB_ENV
+
+    - name: Generate default release description
+      run: >
+        echo "RELEASE_DESCRIPTION=Unstable snapshot of calibration-doc on ${{
+        env.RELEASE_DATE }}." >> $GITHUB_ENV
+
+    - name: Create release
+      uses: actions/create-release@master
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.TAG_NAME }}
+        release_name: ${{ env.RELEASE_NAME }}
+        body: |
+          ${{ env.RELEASE_DESCRIPTION }}
+
+          Built from calibration-tools-doc@${{ github.sha }}.
+        prerelease: true
+        draft: true
+
+    - name: Upload asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_name: Calibration-Tools-zh-${{ env.TAG_NAME }}.pdf
+        asset_path: build/Calibration-Tools_zh.pdf
+        asset_content_type: application/pdf
+
+    - name: Upload indexing-tools asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_name: calibration-doc-html-${{ env.TAG_NAME }}.zip
+        asset_path: calibration-doc-html.zip
+        asset_content_type: application/zip
